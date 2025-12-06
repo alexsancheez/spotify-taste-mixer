@@ -1,63 +1,98 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { saveTokens } from '@/lib/auth';
 
-export default function Callback() {
+export default function CallbackPage() {
   const router = useRouter();
-  const params = useSearchParams();
-
-  const code = params.get("code");
-  const state = params.get("state");
+  const searchParams = useSearchParams();
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!code) return;
+    async function handleCallback() {
+      const code = searchParams.get('code');
+      const state = searchParams.get('state');
+      const errorParam = searchParams.get('error');
 
-    const exchangeToken = async () => {
-      const res = await fetch("/api/spotify-token", {
-        method: "POST",
-      });
+      // si spotify devolvió un error
+      if (errorParam) {
+        console.error('spotify authorization error:', errorParam);
+        setError('error al autorizar con spotify');
+        setTimeout(() => router.push('/'), 3000);
+        return;
+      }
 
-      // Intercambiar codigo por token
-      const params = new URLSearchParams();
-      params.append("grant_type", "authorization_code");
-      params.append("code", code);
-      params.append("redirect_uri", process.env.NEXT_PUBLIC_REDIRECT_URI);
+      // validar state
+      const savedState = localStorage.getItem('spotify_auth_state');
+      if (state !== savedState) {
+        console.error('state mismatch');
+        setError('error de seguridad. intenta de nuevo.');
+        setTimeout(() => router.push('/'), 3000);
+        return;
+      }
 
-      const response = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: {
-          Authorization:
-            "Basic " +
-            btoa(
-              process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID +
-                ":" +
-                process.env.SPOTIFY_CLIENT_SECRET
-            ),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params,
-      });
+      // validar código
+      if (!code) {
+        setError('no se recibió código de autorización');
+        setTimeout(() => router.push('/'), 3000);
+        return;
+      }
 
-      const data = await response.json();
+      try {
+        // solicitar tokens al backend
+        const response = await fetch("/api/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
 
-      // Guardar tokens
-      localStorage.setItem("spotify_token", data.access_token);
-      localStorage.setItem("spotify_refresh_token", data.refresh_token);
-      localStorage.setItem(
-        "spotify_token_expiration",
-        Date.now() + data.expires_in * 1000
-      );
+        if (!response.ok) {
+          console.error('token endpoint error:', await response.text());
+          throw new Error('error al obtener tokens');
+        }
 
-      router.push("/dashboard");
-    };
+        const data = await response.json();
 
-    exchangeToken();
-  }, [code]);
+        // guardar tokens en localstorage
+        saveTokens(
+          data.access_token,
+          data.refresh_token,
+          data.expires_in
+        );
+
+        // limpiar el state csrf
+        localStorage.removeItem('spotify_auth_state');
+
+        // redirigir al dashboard
+        router.push('/dashboard');
+
+      } catch (err) {
+        console.error('error exchanging code for token:', err);
+        setError('error al completar la autenticación');
+        setTimeout(() => router.push('/'), 3000);
+      }
+    }
+
+    handleCallback();
+  }, [searchParams, router]);
 
   return (
-    <div className="flex items-center justify-center h-screen text-white">
-      Procesando autenticación…
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
+      {error ? (
+        <>
+          <div className="text-6xl mb-4">❌</div>
+          <h1 className="text-2xl font-bold mb-2">Error</h1>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <p className="text-sm text-gray-500">Redirigiendo...</p>
+        </>
+      ) : (
+        <>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-green-500 border-t-transparent mb-4"></div>
+          <h1 className="text-2xl font-bold mb-2">Conectando con Spotify...</h1>
+          <p className="text-gray-400">Espera un momento</p>
+        </>
+      )}
     </div>
   );
 }
