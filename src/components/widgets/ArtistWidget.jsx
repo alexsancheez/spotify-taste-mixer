@@ -11,8 +11,7 @@ export default function ArtistWidget({ selectedArtists, onSelect }) {
 
   // Buscar artistas en spotify con debounce
   const searchArtists = async (q) => {
-    const token = getAccessToken();
-    if (!token || q.length < 2) {
+    if (q.length < 2) {
       setResults([]);
       setIsSearching(false);
       return;
@@ -21,6 +20,16 @@ export default function ArtistWidget({ selectedArtists, onSelect }) {
     setIsSearching(true);
 
     try {
+      // ⭐ IMPORTANTE: await getAccessToken() porque devuelve una Promise
+      const token = await getAccessToken();
+      
+      if (!token) {
+        console.error('No token available');
+        setResults([]);
+        setIsSearching(false);
+        return;
+      }
+
       const response = await fetch(
         `https://api.spotify.com/v1/search?type=artist&q=${encodeURIComponent(q)}&limit=10`,
         {
@@ -29,6 +38,11 @@ export default function ArtistWidget({ selectedArtists, onSelect }) {
           }
         }
       );
+
+      if (!response.ok) {
+        console.error('Search failed:', response.status);
+        throw new Error('Search failed');
+      }
 
       const data = await response.json();
       setResults(data.artists?.items || []);

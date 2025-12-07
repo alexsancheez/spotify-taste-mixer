@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { getAccessToken } from '@/lib/auth';
 
 const POPULAR_GENRES = [
-  'pop', 'rock', 'hip-hop', 'electronic', 'indie', 'jazz',
-  'r-n-b', 'metal', 'country', 'latin', 'reggae', 'blues'
+  'pop', 'rock', 'hip-hop', 'electronic', 'indie', 'jazz', 
+  'classical', 'r-n-b', 'metal', 'country', 'reggae', 'latin',
+  'funk', 'soul', 'blues', 'punk'
 ];
 
 export default function GenreWidget({ selectedGenres, onSelect }) {
@@ -17,11 +18,17 @@ export default function GenreWidget({ selectedGenres, onSelect }) {
   // Obtener géneros disponibles desde spotify
   useEffect(() => {
     const fetchGenres = async () => {
-      const token = getAccessToken();
-      if (!token) return;
-
       setIsLoading(true);
       try {
+        // ⭐ IMPORTANTE: await porque getAccessToken() devuelve Promise
+        const token = await getAccessToken();
+        
+        if (!token) {
+          console.error('No token available');
+          setIsLoading(false);
+          return;
+        }
+
         const response = await fetch(
           'https://api.spotify.com/v1/recommendations/available-genre-seeds',
           {
@@ -30,6 +37,11 @@ export default function GenreWidget({ selectedGenres, onSelect }) {
             }
           }
         );
+
+        if (!response.ok) {
+          console.error('Failed to fetch genres:', response.status);
+          throw new Error('Failed to fetch genres');
+        }
 
         const data = await response.json();
         setAllGenres(data.genres || []);
@@ -150,7 +162,7 @@ export default function GenreWidget({ selectedGenres, onSelect }) {
 
           {/* No Results */}
           {showAll && searchQuery && displayGenres.length === 0 && (
-            <div className="text-center py-4 text-gray-400 text-sm">
+            <div className="text-center py-4 text-gray-400 text-sm mt-2">
               no se encontraron géneros
             </div>
           )}

@@ -1,8 +1,5 @@
 import { getAccessToken } from './auth';
 
-// Constantes de la API de Spotify
-const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
-
 // Cache para resultados de búsqueda
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
@@ -62,8 +59,7 @@ async function fetchSpotify(url, options = {}, retries = 3) {
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Spotify API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Spotify API error: ${response.status}`);
     }
 
     return await response.json();
@@ -92,9 +88,8 @@ export async function generatePlaylist(preferences) {
       } else {
         const artistTracks = await Promise.all(
           artists.map(async (artist) => {
-            // CORRECCIÓN: Usar endpoint de top tracks
             const data = await fetchSpotify(
-              `${SPOTIFY_API_BASE}/artists/${artist.id}/top-tracks?market=US`
+              `https://api.spotify.com/v1/artists/${artist.id}/top-tracks?market=US`
             );
             return data.tracks || [];
           })
@@ -115,10 +110,8 @@ export async function generatePlaylist(preferences) {
           
           if (cached) return cached;
           
-          // CORRECCIÓN: Usar endpoint de búsqueda o recomendaciones (aquí usaremos búsqueda)
-          // Nota: El endpoint de recomendación es mejor para géneros, pero el de búsqueda es más simple
           const data = await fetchSpotify(
-            `${SPOTIFY_API_BASE}/search?q=genre:"${encodeURIComponent(genre)}"&type=track&limit=30`
+            `https://api.spotify.com/v1/search?type=track&q=genre:${encodeURIComponent(genre)}&limit=30`
           );
           
           const tracks = data.tracks?.items || [];
@@ -132,11 +125,10 @@ export async function generatePlaylist(preferences) {
 
     // Si no hay artistas ni géneros, buscar tracks populares
     if (allTracks.length === 0) {
-      // CORRECCIÓN: Usar endpoint de Top Tracks del usuario o recomendaciones genéricas
       const data = await fetchSpotify(
-        `${SPOTIFY_API_BASE}/me/top/tracks?limit=30`
+        'https://api.spotify.com/v1/search?type=track&q=year:2020-2024&limit=50'
       );
-      allTracks = data.items || [];
+      allTracks = data.tracks?.items || [];
     }
 
     // 3. Filtrar por década
@@ -189,6 +181,11 @@ export async function generatePlaylist(preferences) {
 }
 
 async function filterByAudioFeatures(tracks, targetFeatures) {
+  // Si no hay features especificadas, retornar tracks sin filtrar
+  if (!targetFeatures || Object.keys(targetFeatures).length === 0) {
+    return tracks;
+  }
+
   try {
     // Obtener audio features en lotes de 50 (límite de Spotify)
     const batchSize = 50;
@@ -201,16 +198,26 @@ async function filterByAudioFeatures(tracks, targetFeatures) {
 
     const allFeatures = await Promise.all(
       batches.map(async (batch) => {
-        const ids = batch.map(t => t.id).join(',');
-        // CORRECCIÓN: Usar endpoint de audio features
-        const data = await fetchSpotify(
-          `${SPOTIFY_API_BASE}/audio-features?ids=${ids}`
-        );
-        return data.audio_features || [];
+        try {
+          const ids = batch.map(t => t.id).join(',');
+          const data = await fetchSpotify(
+            `https://api.spotify.com/v1/audio-features?ids=${ids}`
+          );
+          return data.audio_features || [];
+        } catch (error) {
+          console.warn('Failed to fetch audio features for batch:', error);
+          return [];
+        }
       })
     );
 
-    const features = allFeatures.flat();
+    const features = allFeatures.flat().filter(f => f !== null);
+
+    // Si no pudimos obtener features, retornar tracks originales
+    if (features.length === 0) {
+      console.warn('No audio features available, returning original tracks');
+      return tracks;
+    }
 
     // Calcular score para cada track basado en qué tan cerca está de los targets
     const tracksWithScores = tracks.map((track, index) => {
@@ -222,22 +229,22 @@ async function filterByAudioFeatures(tracks, targetFeatures) {
       let score = 0;
       let count = 0;
 
-      if (targetFeatures.energy !== undefined) {
+      if (targetFeatures.energy !== undefined && feature.energy !== null) {
         score += 1 - Math.abs(feature.energy - targetFeatures.energy);
         count++;
       }
       
-      if (targetFeatures.valence !== undefined) {
+      if (targetFeatures.valence !== undefined && feature.valence !== null) {
         score += 1 - Math.abs(feature.valence - targetFeatures.valence);
         count++;
       }
       
-      if (targetFeatures.danceability !== undefined) {
+      if (targetFeatures.danceability !== undefined && feature.danceability !== null) {
         score += 1 - Math.abs(feature.danceability - targetFeatures.danceability);
         count++;
       }
       
-      if (targetFeatures.acousticness !== undefined) {
+      if (targetFeatures.acousticness !== undefined && feature.acousticness !== null) {
         score += 1 - Math.abs(feature.acousticness - targetFeatures.acousticness);
         count++;
       }
@@ -249,10 +256,13 @@ async function filterByAudioFeatures(tracks, targetFeatures) {
     });
 
     // Ordenar por score y retornar los mejores matches
-    return tracksWithScores
-      .filter(item => item.score > 0.5) // Solo tracks que matchean razonablemente bien
+    const filtered = tracksWithScores
+      .filter(item => item.score > 0.3) // Bajamos el threshold de 0.5 a 0.3
       .sort((a, b) => b.score - a.score)
       .map(item => item.track);
+
+    // Si el filtrado es muy agresivo, retornar al menos algunos tracks
+    return filtered.length > 0 ? filtered : tracks.slice(0, 20);
 
   } catch (error) {
     console.error('Error filtering by audio features:', error);
@@ -270,9 +280,8 @@ export async function searchArtists(query) {
   if (cached) return cached;
 
   try {
-    // CORRECCIÓN: Usar endpoint de búsqueda
     const data = await fetchSpotify(
-      `${SPOTIFY_API_BASE}/search?q=${encodeURIComponent(query)}&type=artist&limit=10`
+      `https://api.spotify.com/v1/search?type=artist&q=${encodeURIComponent(query)}&limit=10`
     );
     
     const artists = data.artists?.items || [];
@@ -291,9 +300,8 @@ export async function getAvailableGenres() {
   if (cached) return cached;
 
   try {
-    // CORRECCIÓN: Usar endpoint de semillas de recomendación
     const data = await fetchSpotify(
-      `${SPOTIFY_API_BASE}/recommendations/available-genre-seeds`
+      'https://api.spotify.com/v1/recommendations/available-genre-seeds'
     );
     
     const genres = data.genres || [];
@@ -307,9 +315,8 @@ export async function getAvailableGenres() {
 
 export async function getTrackFeatures(trackId) {
   try {
-    // CORRECCIÓN: Usar endpoint de audio features
     const data = await fetchSpotify(
-      `${SPOTIFY_API_BASE}/audio-features/${trackId}`
+      `https://api.spotify.com/v1/audio-features/${trackId}`
     );
     return data;
   } catch (error) {
@@ -321,9 +328,8 @@ export async function getTrackFeatures(trackId) {
 export async function createSpotifyPlaylist(userId, tracks, playlistName = 'Mi Playlist Personalizada') {
   try {
     // Crear la playlist
-    // CORRECCIÓN: Usar endpoint de creación de playlist
     const createData = await fetchSpotify(
-      `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+      `https://api.spotify.com/v1/users/${userId}/playlists`,
       {
         method: 'POST',
         headers: {
@@ -339,9 +345,8 @@ export async function createSpotifyPlaylist(userId, tracks, playlistName = 'Mi P
 
     // Añadir tracks a la playlist
     const trackUris = tracks.map(track => track.uri);
-    // CORRECCIÓN: Usar endpoint de añadir tracks
     await fetchSpotify(
-      `${SPOTIFY_API_BASE}/playlists/${createData.id}/tracks`,
+      `https://api.spotify.com/v1/playlists/${createData.id}/tracks`,
       {
         method: 'POST',
         headers: {
@@ -367,8 +372,7 @@ export async function getCurrentUser() {
   if (cached) return cached;
 
   try {
-    // CORRECCIÓN: Usar endpoint de perfil de usuario
-    const data = await fetchSpotify(`${SPOTIFY_API_BASE}/me`);
+    const data = await fetchSpotify('https://api.spotify.com/v1/me');
     setCache(cacheKey, data);
     return data;
   } catch (error) {
