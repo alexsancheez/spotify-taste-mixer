@@ -20,7 +20,7 @@ export default function ArtistWidget({ selectedArtists, onSelect }) {
     setIsSearching(true);
 
     try {
-      // ⭐ IMPORTANTE: await getAccessToken() porque devuelve una Promise
+      
       const token = await getAccessToken();
       
       if (!token) {

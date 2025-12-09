@@ -21,7 +21,7 @@ export default function PopularityWidget({ popularity, onSelect }) {
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4 text-white">popularidad</h2>
 
-      {/* Visual Indicator */}
+      {/* indicador */}
       <div className="mb-4 text-center">
         <div className="text-4xl mb-2">{label.emoji}</div>
         <div className={`text-lg font-bold bg-gradient-to-r ${label.color} bg-clip-text text-transparent`}>
@@ -32,7 +32,7 @@ export default function PopularityWidget({ popularity, onSelect }) {
         </div>
       </div>
 
-      {/* Slider */}
+      {/* Slide */}
       <div className="relative mb-3">
         <input
           type="range"
@@ -43,14 +43,14 @@ export default function PopularityWidget({ popularity, onSelect }) {
           className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer"
         />
         
-        {/* Progress Bar */}
+        {/* Progresso */}
         <div 
           className={`absolute top-0 left-0 h-3 rounded-lg bg-gradient-to-r ${label.color} pointer-events-none`}
           style={{ width: `${percentage}%` }}
         />
       </div>
 
-      {/* Scale Labels */}
+      {/* Scale etiquetas */}
       <div className="flex justify-between text-xs text-gray-500 mb-4">
         <span>underground</span>
         <span>mainstream</span>
@@ -65,7 +65,7 @@ export default function PopularityWidget({ popularity, onSelect }) {
         </div>
       </div>
 
-      {/* Quick Presets */}
+      {/* Presets */}
       <div className="mt-3 flex gap-2">
         <button
           onClick={() => onSelect(15)}

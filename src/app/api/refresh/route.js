@@ -46,8 +46,8 @@ export async function POST(request) {
       refresh_token: data.refresh_token || refresh_token,
     });
 
-  } catch (error) {
-    console.error('❌ Token refresh error:', error);
+  } catch (error) { 
+    console.error('❌ Token refresh error(debug):', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

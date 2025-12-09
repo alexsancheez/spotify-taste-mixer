@@ -11,13 +11,13 @@ function getCacheKey(type, query) {
 function getFromCache(key) {
   const cached = cache.get(key);
   if (!cached) return null;
-  
+
   const isExpired = Date.now() - cached.timestamp > CACHE_DURATION;
   if (isExpired) {
     cache.delete(key);
     return null;
   }
-  
+
   return cached.data;
 }
 
@@ -32,11 +32,11 @@ function setCache(key, data) {
 async function fetchSpotify(url, options = {}, retries = 3) {
   // Obtener token (se auto-refresca si expiró)
   const token = await getAccessToken();
-  
+
   if (!token) {
     throw new Error('No access token available. Please log in again.');
   }
-  
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -78,24 +78,45 @@ export async function generatePlaylist(preferences) {
   const trackIds = new Set(); // Para evitar duplicados
 
   try {
+    // Obtener el mercado del usuario desde su perfil
+    let userMarket = 'ES'; // Fallback a España
+    try {
+      const userData = await fetchSpotify('https://api.spotify.com/v1/me');
+      if (userData && userData.country) {
+        userMarket = userData.country;
+      }
+    } catch (e) {
+      console.warn('Could not get user market, using ES as fallback');
+    }
+
     // 1. Obtener tracks de artistas seleccionados
     if (artists && artists.length > 0) {
       const cacheKey = getCacheKey('artists', artists.map(a => a.id));
       const cached = getFromCache(cacheKey);
-      
+
       if (cached) {
+        console.log('📦 Using cached artist tracks:', cached.length);
         allTracks.push(...cached);
       } else {
+        console.log('🔍 Fetching top tracks for', artists.length, 'artists with market:', userMarket);
         const artistTracks = await Promise.all(
           artists.map(async (artist) => {
-            const data = await fetchSpotify(
-              `https://api.spotify.com/v1/artists/${artist.id}/top-tracks?market=US`
-            );
-            return data.tracks || [];
+            try {
+              console.log(`🎤 Fetching tracks for ${artist.name} (${artist.id})`);
+              const data = await fetchSpotify(
+                `https://api.spotify.com/v1/artists/${artist.id}/top-tracks?market=${userMarket}`
+              );
+              console.log(`✅ Got ${data.tracks?.length || 0} tracks for ${artist.name}`, data);
+              return data.tracks || [];
+            } catch (err) {
+              console.error(`❌ Error fetching tracks for ${artist.name}:`, err);
+              return [];
+            }
           })
         );
-        
+
         const tracks = artistTracks.flat();
+        console.log('📊 Total artist tracks fetched:', tracks.length);
         setCache(cacheKey, tracks);
         allTracks.push(...tracks);
       }
@@ -107,19 +128,19 @@ export async function generatePlaylist(preferences) {
         genres.map(async (genre) => {
           const cacheKey = getCacheKey('genre', genre);
           const cached = getFromCache(cacheKey);
-          
+
           if (cached) return cached;
-          
+
           const data = await fetchSpotify(
-            `https://api.spotify.com/v1/search?type=track&q=genre:${encodeURIComponent(genre)}&limit=30`
+            `https://api.spotify.com/v1/search?type=track&q=${encodeURIComponent(genre)}&limit=30`
           );
-          
+
           const tracks = data.tracks?.items || [];
           setCache(cacheKey, tracks);
           return tracks;
         })
       );
-      
+
       allTracks.push(...genreTracks.flat());
     }
 
@@ -190,7 +211,7 @@ async function filterByAudioFeatures(tracks, targetFeatures) {
     // Obtener audio features en lotes de 50 (límite de Spotify)
     const batchSize = 50;
     const batches = [];
-    
+
     for (let i = 0; i < tracks.length; i += batchSize) {
       const batch = tracks.slice(i, i + batchSize);
       batches.push(batch);
@@ -222,7 +243,7 @@ async function filterByAudioFeatures(tracks, targetFeatures) {
     // Calcular score para cada track basado en qué tan cerca está de los targets
     const tracksWithScores = tracks.map((track, index) => {
       const feature = features[index];
-      
+
       if (!feature) return { track, score: 0 };
 
       // Calcular diferencia normalizada para cada feature
@@ -233,17 +254,17 @@ async function filterByAudioFeatures(tracks, targetFeatures) {
         score += 1 - Math.abs(feature.energy - targetFeatures.energy);
         count++;
       }
-      
+
       if (targetFeatures.valence !== undefined && feature.valence !== null) {
         score += 1 - Math.abs(feature.valence - targetFeatures.valence);
         count++;
       }
-      
+
       if (targetFeatures.danceability !== undefined && feature.danceability !== null) {
         score += 1 - Math.abs(feature.danceability - targetFeatures.danceability);
         count++;
       }
-      
+
       if (targetFeatures.acousticness !== undefined && feature.acousticness !== null) {
         score += 1 - Math.abs(feature.acousticness - targetFeatures.acousticness);
         count++;
@@ -276,14 +297,14 @@ export async function searchArtists(query) {
 
   const cacheKey = getCacheKey('search_artists', query);
   const cached = getFromCache(cacheKey);
-  
+
   if (cached) return cached;
 
   try {
     const data = await fetchSpotify(
       `https://api.spotify.com/v1/search?type=artist&q=${encodeURIComponent(query)}&limit=10`
     );
-    
+
     const artists = data.artists?.items || [];
     setCache(cacheKey, artists);
     return artists;
@@ -296,14 +317,14 @@ export async function searchArtists(query) {
 export async function getAvailableGenres() {
   const cacheKey = 'available_genres';
   const cached = getFromCache(cacheKey);
-  
+
   if (cached) return cached;
 
   try {
     const data = await fetchSpotify(
       'https://api.spotify.com/v1/recommendations/available-genre-seeds'
     );
-    
+
     const genres = data.genres || [];
     setCache(cacheKey, genres);
     return genres;
@@ -368,7 +389,7 @@ export async function createSpotifyPlaylist(userId, tracks, playlistName = 'Mi P
 export async function getCurrentUser() {
   const cacheKey = 'current_user';
   const cached = getFromCache(cacheKey);
-  
+
   if (cached) return cached;
 
   try {

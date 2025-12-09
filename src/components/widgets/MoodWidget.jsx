@@ -71,7 +71,7 @@ export default function MoodWidget({ mood, onSelect }) {
           
           return (
             <div key={key} className="space-y-2">
-              {/* Label and Value */}
+              {/* valor y etiqueta */}
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-300 flex items-center gap-2">
                   <span className="text-lg">{config.emoji}</span>
@@ -82,7 +82,7 @@ export default function MoodWidget({ mood, onSelect }) {
                 </span>
               </div>
 
-              {/* Slider */}
+              {/* Slide */}
               <div className="relative">
                 <input
                   type="range"
@@ -100,14 +100,14 @@ export default function MoodWidget({ mood, onSelect }) {
                   }}
                 />
                 
-                {/* Progress Bar Overlay */}
+                {/* Progresso barra */}
                 <div 
                   className={`absolute top-0 left-0 h-2 rounded-lg bg-gradient-to-r ${config.color} pointer-events-none`}
                   style={{ width: `${percentage}%` }}
                 />
               </div>
 
-              {/* Labels */}
+              {/* etiquetas */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>{config.lowLabel}</span>
                 <span>{config.highLabel}</span>
@@ -117,7 +117,7 @@ export default function MoodWidget({ mood, onSelect }) {
         })}
       </div>
 
-      {/* Mood Description */}
+      {/* Mood */}
       <div className="mt-4 p-3 bg-gray-800 rounded-lg">
         <div className="text-xs text-gray-400">
           {getMoodDescription(mood)}

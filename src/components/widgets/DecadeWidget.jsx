@@ -43,7 +43,7 @@ export default function DecadeWidget({ selectedDecades, onSelect }) {
         )}
       </div>
 
-      {/* Decade Grid */}
+      {/* Decada Grid */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         {DECADES.map((decade) => {
           const isSelected = selectedDecades.includes(decade.value);
@@ -73,7 +73,7 @@ export default function DecadeWidget({ selectedDecades, onSelect }) {
         })}
       </div>
 
-      {/* Actions */}
+      {/* Acciones */}
       <div className="flex gap-2 text-xs pt-2 border-t border-gray-700">
         {selectedDecades.length === DECADES.length ? (
           <button

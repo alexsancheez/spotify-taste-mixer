@@ -53,7 +53,7 @@ export default function TrackCard({ track, onRemove, onFavorite, isFavorite }) {
             )}
           </div>
           
-          {/* Play Button Overlay */}
+          {/* Play Button  */}
           {track.preview_url && (
             <button
               onClick={handlePlayPreview}
@@ -72,7 +72,7 @@ export default function TrackCard({ track, onRemove, onFavorite, isFavorite }) {
           )}
         </div>
 
-        {/* Track Info */}
+        {/* Tracks */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -84,7 +84,7 @@ export default function TrackCard({ track, onRemove, onFavorite, isFavorite }) {
               </p>
             </div>
 
-            {/* Actions */}
+            {/* acciones */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => onFavorite(track)}
@@ -134,7 +134,7 @@ export default function TrackCard({ track, onRemove, onFavorite, isFavorite }) {
             </div>
           </div>
 
-          {/* Additional Info */}
+          {/*  Info adicional */}
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
             <span>{formatDuration(track.duration_ms)}</span>
             <span className="flex items-center gap-1">
@@ -148,7 +148,7 @@ export default function TrackCard({ track, onRemove, onFavorite, isFavorite }) {
             )}
           </div>
 
-          {/* Detailed Info (Expandable) */}
+          {/* Detailed Info */}
           {showDetails && (
             <div className="mt-3 pt-3 border-t border-gray-700 text-xs space-y-1">
               <p className="text-gray-400">
@@ -167,7 +167,7 @@ export default function TrackCard({ track, onRemove, onFavorite, isFavorite }) {
         </div>
       </div>
 
-      {/* Waveform indicator when playing */}
+      {/* Waveform indicator  */}
       {isPlaying && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 animate-pulse"></div>
       )}

@@ -71,8 +71,8 @@ async function refreshAccessToken() {
         throw new Error('No refresh token available');
       }
 
-      // IMPORTANTE: Esta ruta DEBE coincidir con la de tu route.js (e.g., /api/auth/refresh)
-      const response = await fetch('/api/auth/refresh', {
+      // IMPORTANTE: Esta ruta DEBE coincidir con la de tu route.js
+      const response = await fetch('/api/refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
